@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- HTML Meta Tags -->
+    <title>NearIEM: Seemilar FR</title>
+    <meta
+      name="description"
+      content="NearIEM is a project that aims to find IEMs with similar frequency response."
+    />
+
+    <!-- Facebook Meta Tags -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="NearIEM: Seemilar FR" />
+    <meta property="og:site_name" content="NearIEM" />
+    <meta
+      property="og:description"
+      content="NearIEM is a project that aims to find IEMs with similar frequency response."
+    />
+    <meta property="og:image" content="empty.jpeg" />
+
+    <!-- Twitter Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta property="twitter:domain" content="neariem.akmal.dev" />
+    <meta name="twitter:title" content="NearIEM: Seemilar FR" />
+    <meta
+      name="twitter:description"
+      content="NearIEM is a project that aims to find IEMs with similar frequency response."
+    />
+    <meta name="twitter:image" content="empty.jpeg" />
+
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎯</text></svg>"
+    />
+
+    <!-- Style CSS -->
+    <link href="style.css" rel="stylesheet" type="text/css" />
+    <link
+      href="https://cdn.jsdelivr.net/npm/simple-datatables-classic@latest/dist/style.css"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body>
+    <!-- Main -->
+    <article class="js">
+      <h1><a href=".">NearIEM</a></h1>
+
+      <p>
+        NearIEM is a project that aims to find IEMs with similar frequency
+        response.
+        <b>You cannot trust the results blindly</b>, please audition the IEMs
+        yourself before buying.
+      </p>
+
+      <p style="margin-bottom: 0px">Explanation of the columns:</p>
+      <ul style="margin-top: 0px">
+        <li>Std. Error: Standard deviation of the error between the IEMs.</li>
+        <li>MAE: Mean of the absolute error between the IEMs.</li>
+        <li>MSE: Mean squared error between the IEMs.</li>
+        <li>RMSE: Root mean squared error between the IEMs.</li>
+        <li>
+          Pref. Score: Preference score calculated using the formula from Harman
+          Research.
+          <i>(without slope regression param. not implemented yet.)</i>
+        </li>
+      </ul>
+
+      <!-- Select measurement sources -->
+      <label for="search-bar">Select measurements sources:</label>
+      <select
+        class="search-bar"
+        style="width: 100%; padding: 10px; margin-bottom: 8px"
+        onchange="changeSourceData(this.value)"
+      >
+        <option value="data/super.cbor.gz">Super* Review</option>
+        <option value="data/pw.cbor.gz">Paul Wasabii</option>
+        <option value="data/precog.cbor.gz">Precogvision</option>
+        <option value="data/crinacle_711.cbor.gz">Crinacle 711</option>
+        <option value="data/crinacle_4620.cbor.gz">Crinacle 4620</option>
+      </select>
+
+      <!-- Search bar -->
+      <div class="search-container">
+        <input
+          type="text"
+          class="search-bar"
+          id="search-iem"
+          placeholder="Search..."
+          onkeyup="showSuggestions(this.value)"
+        />
+        <button id="clear-btn" onclick="clearSearch()">Clear</button>
+        <div id="suggestions"></div>
+      </div>
+
+      <br />
+
+      <!-- Table -->
+      <div
+        class="dataTable-wrapper dataTable-loading no-footer sortable searchable fixed-columns"
+      >
+        <div class="dataTable-container">
+          <table id="rank-table" class="dataTable-table table-sort">
+            <thead>
+              <tr>
+                <th id="name-th">Name</th>
+                <th id="float-th">Std. Error</th>
+                <th id="float-th">MAE</th>
+                <th id="float-th">MSE</th>
+                <th id="float-th">RMSE</th>
+                <th id="float-th">Pref. Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- here data are inserted from javascript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p>
+        Thanks to <a href="https://squig.link/">Super* Review</a> for providing
+        the measurements data. <br />
+        <br />
+      </p>
+    </article>
+
+    <footer style="margin-bottom: 20px">
+      <address>
+        Website
+        <a href="https://github.com/Wikidepia/NearIEM" target="_blank"
+          >source code</a
+        >.
+      </address>
+    </footer>
+    <!-- ./ Main -->
+
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.43/dist/flexsearch.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cbor-x@1.5.9/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/table-sort-js/table-sort.min.js"></script>
+
+    <script>
+      // SETUP: Create search index
+      let iemsData = {};
+      let iemsFR = Array();
+      let index = window.FlexSearch.Index({
+        tokenize: "forward",
+        charset: "latin:simple",
+      });
+
+      async function decompressBlob(blob) {
+        let ds = new DecompressionStream("gzip");
+        let decompressedStream = blob.stream().pipeThrough(ds);
+        return await new Response(decompressedStream).arrayBuffer();
+      }
+
+      async function changeSourceData(dataPath) {
+        let ds = new DecompressionStream("gzip");
+        iemsData = await fetch(dataPath)
+          .then((response) => response.blob())
+          .then((blob) => decompressBlob(blob))
+          .then((buffer) => CBOR.decode(new Uint8Array(buffer)));
+
+        // Reset index
+        iemsFR = Array();
+        index = window.FlexSearch.Index({
+          tokenize: "forward",
+          charset: "latin:simple",
+        });
+        for (var i in iemsData.name) {
+          index.add(i, iemsData.name[i]);
+          // Make a flat freq resp in iemsFR
+          let freqResp = iemsData.response[i];
+          iemsFR.push(...freqResp.flat());
+        }
+
+        // Clear search bar
+        document.getElementById("search-iem").value = "";
+      }
+
+      document.addEventListener("DOMContentLoaded", async function () {
+        await changeSourceData("data/super.cbor.gz");
+      });
+    </script>
+
+    <script>
+      function showSuggestions(value) {
+        const suggestionsDiv = document.getElementById("suggestions");
+        suggestionsDiv.innerHTML = "";
+        if (value.length === 0) {
+          return;
+        }
+
+        const suggestions = index.search(value, 50);
+        suggestions.forEach((suggestion) => {
+          suggestion = iemsData.name[suggestion];
+          const suggestionDiv = document.createElement("div");
+          suggestionDiv.textContent = suggestion;
+          suggestionDiv.onclick = () => {
+            document.getElementById("search-iem").value = suggestion;
+            suggestionsDiv.innerHTML = "";
+            findSimilarIEM(suggestion);
+          };
+          suggestionsDiv.appendChild(suggestionDiv);
+        });
+      }
+
+      function clearSearch() {
+        document.getElementById("search-iem").value = "";
+        document.getElementById("suggestions").innerHTML = "";
+      }
+
+      function toFixedFast(x) {
+        return ~~(x * 100) / 100;
+      }
+
+      function findSimilarIEM(iemName) {
+        const start = performance.now();
+        const selectedIdx = iemsData.name.indexOf(iemName);
+        const curFreq = iemsData.response[selectedIdx];
+
+        const iemsCnt = iemsData.name.length;
+        const freqDims = curFreq.length;
+
+        let sqrSum = Array(iemsCnt).fill(0);
+        let sumnoAbs = Array(iemsCnt).fill(0);
+        let sumAll = Array(iemsCnt).fill(0);
+
+        let j = -1;
+        for (let i = 0; i < iemsFR.length; i++) {
+          let spl = curFreq[i % freqDims];
+          let splError = iemsFR[i] - spl;
+
+          if (i % freqDims == 0) j++;
+          sumnoAbs[j] += splError;
+          sumAll[j] += Math.abs(splError);
+          sqrSum[j] += splError * splError;
+        }
+
+        // Find mean for std and MAE
+        let meanAll = sumAll.map((x) => x / freqDims);
+        let meannoAbs = sumnoAbs.map((x) => x / freqDims);
+        let mearnSqr = sqrSum.map((x) => x / freqDims);
+
+        const allData = [];
+        for (var i in iemsData.response) {
+          let name = iemsData.name[i];
+          let meanErr = meanAll[i];
+          if (meanErr < 0.01) {
+            continue;
+          }
+
+          let meanSq = mearnSqr[i];
+          let rmse = Math.sqrt(meanSq);
+          let stdErr = Math.sqrt(
+            sqrSum[i] / freqDims - meannoAbs[i] * meannoAbs[i]
+          );
+
+          // preference score lacks slope (for now)
+          let prefScore = 100.0795 - 8.5 * stdErr - 3.475 * meanErr;
+          if (prefScore < 0) {
+            continue;
+          }
+          allData.push([
+            name,
+            toFixedFast(stdErr),
+            toFixedFast(meanErr),
+            toFixedFast(meanSq),
+            toFixedFast(rmse),
+            toFixedFast(prefScore),
+          ]);
+        }
+
+        // Sort allData based on prefScore, high to low
+        allData.sort((a, b) => b[5] - a[5]);
+
+        // Create html table in id=rank-table
+        let table = document.getElementById("rank-table");
+        let tbody = table.getElementsByTagName("tbody")[0];
+
+        let tbodyData = "";
+        for (let item of allData) {
+          let row = item.map(cell => `<td>${cell}</td>`).join("");
+          tbodyData += `<tr>${row}</tr>`;
+        }
+        tbody.innerHTML = tbodyData;
+
+        sqrSum = null;
+        sumnoAbs = null;
+        sumAll = null;
+        console.log("Time taken: " + (performance.now() - start) + "ms");
+      }
+    </script>
+  </body>
+</html>
