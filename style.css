@@ -6,14 +6,6 @@ article {
   max-width: 40em;
   margin: 0 auto;
 }
-article > * {
-  display: none;
-}
-article.js > *,
-article > h1,
-article > noscript {
-  display: inherit;
-}
 address {
   position: fixed;
   right: 1em;
@@ -99,17 +91,8 @@ a:visited {
   color: #b80f28;
 }
 
-/* make id=name-th width 50% when in large screen and 30% on large screen */
-@media (min-width: 768px) {
-  #name-th {
-    width: 60%;
-  }
-}
-
-@media (max-width: 768px) {
-  #name-th {
-    width: 30%;
-  }
+#name-th {
+  width: 60%;
 }
 
 *:has(> table) {
@@ -166,4 +149,35 @@ a:visited {
 
 #suggestions div:hover {
   background-color: #e0e0e0;
+}
+
+table {
+  overflow-y: scroll;
+  border-collapse: collapse;
+  width: 100%;
+}
+th,
+td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+th {
+  background-color: #f2f2f2;
+}
+#searchBox {
+  margin-bottom: 10px;
+  padding: 5px;
+  width: 200px;
+}
+#pagination {
+  display: flex;
+  justify-content: center;
+
+  margin-top: 10px;
+}
+.pageButton {
+  margin-right: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
 }

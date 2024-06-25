@@ -38,10 +38,6 @@
 
     <!-- Style CSS -->
     <link href="style.css" rel="stylesheet" type="text/css" />
-    <link
-      href="https://cdn.jsdelivr.net/npm/simple-datatables-classic@latest/dist/style.css"
-      rel="stylesheet"
-    />
   </head>
 
   <body>
@@ -60,8 +56,8 @@
       <ul style="margin-top: 0px">
         <li>Std. Error: Standard deviation of the error between the IEMs.</li>
         <li>MAE: Mean of the absolute error between the IEMs.</li>
-        <li>MSE: Mean squared error between the IEMs.</li>
-        <li>RMSE: Root mean squared error between the IEMs.</li>
+        <!-- <li>MSE: Mean squared error between the IEMs.</li> -->
+        <!-- <li>RMSE: Root mean squared error between the IEMs.</li> -->
         <li>
           Pref. Score: Preference score calculated using the formula from Harman
           Research.
@@ -99,27 +95,23 @@
       <br />
 
       <!-- Table -->
-      <div
-        class="dataTable-wrapper dataTable-loading no-footer sortable searchable fixed-columns"
-      >
-        <div class="dataTable-container">
-          <table id="rank-table" class="dataTable-table table-sort">
-            <thead>
-              <tr>
-                <th id="name-th">Name</th>
-                <th id="float-th">Std. Error</th>
-                <th id="float-th">MAE</th>
-                <th id="float-th">MSE</th>
-                <th id="float-th">RMSE</th>
-                <th id="float-th">Pref. Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- here data are inserted from javascript -->
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <input type="text" id="searchBox" placeholder="Search..." />
+      <table id="dataTable">
+        <thead>
+          <tr>
+            <th id="name-th">Name</th>
+            <th id="float-th">Std. Error</th>
+            <th id="float-th">MAE</th>
+            <!-- <th id="float-th">MSE</th> -->
+            <!-- <th id="float-th">RMSE</th> -->
+            <th id="float-th">Pref. Score</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Table data will be inserted here -->
+        </tbody>
+      </table>
+      <div id="pagination"></div>
 
       <p>
         Thanks to <a href="https://squig.link/">Super* Review</a> for providing
@@ -217,6 +209,94 @@
         return ~~(x * 100) / 100;
       }
 
+      const itemsPerPage = 10;
+      let currentPage = 1;
+
+      function renderTable(data) {
+        const tableBody = document.querySelector("#dataTable tbody");
+        tableBody.innerHTML = "";
+
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const paginatedData = data.slice(start, end);
+
+        paginatedData.forEach((item) => {
+          const row = `<tr>
+                    <td>${item.name}</td>
+                    <td>${item.stdErr}</td>
+                    <td>${item.meanErr}</td>
+                    <td>${item.prefScore}</td>
+                </tr>`;
+          tableBody.innerHTML += row;
+        });
+
+        renderPagination(data);
+      }
+
+      function renderPagination(data) {
+        const pageCount = Math.ceil(data.length / itemsPerPage);
+        const paginationElement = document.getElementById("pagination");
+        paginationElement.innerHTML = "";
+
+        // Previous button
+        const prevButton = createButton("Previous", () => {
+          if (currentPage > 1) {
+            currentPage--;
+            renderTable();
+          }
+        });
+        prevButton.disabled = currentPage === 1;
+        paginationElement.appendChild(prevButton);
+
+        // Page numbers
+        const startPage = Math.max(1, currentPage - 2);
+        const endPage = Math.min(pageCount, startPage + 4);
+
+        for (let i = startPage; i <= endPage; i++) {
+          const button = createButton(i, () => {
+            currentPage = i;
+            renderTable(data);
+          });
+          button.disabled = i === currentPage;
+          paginationElement.appendChild(button);
+        }
+
+        // Next button
+        const nextButton = createButton("Next", () => {
+          if (currentPage < pageCount) {
+            currentPage++;
+            renderTable(data);
+          }
+        });
+        nextButton.disabled = currentPage === pageCount;
+        paginationElement.appendChild(nextButton);
+      }
+
+      function createButton(text, onClick) {
+        const button = document.createElement("button");
+        button.innerText = text;
+        button.classList.add("pageButton");
+        button.addEventListener("click", onClick);
+        return button;
+      }
+
+      function searchTable() {
+        const searchTerm = document
+          .getElementById("searchBox")
+          .value.toLowerCase();
+        let filteredData = data.filter(
+          (item) =>
+            item.name.toLowerCase().includes(searchTerm) ||
+            item.email.toLowerCase().includes(searchTerm)
+        );
+        currentPage = 1;
+        renderTable(filteredData);
+      }
+
+      document
+        .getElementById("searchBox")
+        .addEventListener("input", searchTable);
+
       function findSimilarIEM(iemName) {
         const start = performance.now();
         const selectedIdx = iemsData.name.indexOf(iemName);
@@ -264,29 +344,21 @@
           if (prefScore < 0) {
             continue;
           }
-          allData.push([
-            name,
-            toFixedFast(stdErr),
-            toFixedFast(meanErr),
-            toFixedFast(meanSq),
-            toFixedFast(rmse),
-            toFixedFast(prefScore),
-          ]);
+          allData.push({
+            name: name,
+            stdErr: toFixedFast(stdErr),
+            meanErr: toFixedFast(meanErr),
+            meanSq: toFixedFast(meanSq),
+            rmse: toFixedFast(rmse),
+            prefScore: toFixedFast(prefScore),
+          });
         }
 
         // Sort allData based on prefScore, high to low
-        allData.sort((a, b) => b[5] - a[5]);
+        allData.sort((a, b) => b.prefScore - a.prefScore);
 
-        // Create html table in id=rank-table
-        let table = document.getElementById("rank-table");
-        let tbody = table.getElementsByTagName("tbody")[0];
-
-        let tbodyData = "";
-        for (let item of allData) {
-          let row = item.map(cell => `<td>${cell}</td>`).join("");
-          tbodyData += `<tr>${row}</tr>`;
-        }
-        tbody.innerHTML = tbodyData;
+        renderTable(allData);
+        renderPagination(allData);
 
         sqrSum = null;
         sumnoAbs = null;
