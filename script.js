@@ -1,56 +1,218 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('search-input');
-    const suggestionsContainer = document.getElementById('suggestions');
+// SETUP: Create search index
+let iemsData = {};
+let iemsFR = Array();
+let index = window.FlexSearch.Index({
+  tokenize: "forward",
+  charset: "latin:simple",
+});
 
-    searchInput.addEventListener('input', function() {
-        const query = searchInput.value.trim();
-        if (query.length > 0) {
-            fetchSuggestions(query);
-        } else {
-            suggestionsContainer.style.display = 'none';
-        }
+async function decompressBlob(blob) {
+  let ds = new DecompressionStream("gzip");
+  let decompressedStream = blob.stream().pipeThrough(ds);
+  return await new Response(decompressedStream).arrayBuffer();
+}
+
+async function changeSourceData(dataPath) {
+  iemsData = await fetch(dataPath)
+    .then((response) => response.blob())
+    .then((blob) => decompressBlob(blob))
+    .then((buffer) => CBOR.decode(new Uint8Array(buffer)));
+
+  // Reset index
+  iemsFR = Array();
+  index = window.FlexSearch.Index({
+    tokenize: "forward",
+    charset: "latin:simple",
+  });
+  for (var i in iemsData.name) {
+    index.add(i, iemsData.name[i]);
+    // Make a flat freq resp in iemsFR
+    let freqResp = iemsData.response[i];
+    iemsFR.push(...freqResp.flat());
+  }
+
+  // Clear search bar and suggestions
+  document.getElementById("search-iem").value = "";
+  document.getElementById("suggestions").innerHTML = "";
+}
+
+function showSuggestions(value) {
+  const suggestionsDiv = document.getElementById("suggestions");
+  suggestionsDiv.innerHTML = "";
+  if (value.length === 0) {
+    return;
+  }
+
+  const suggestions = index.search(value, 50);
+  suggestions.forEach((suggestion) => {
+    suggestion = iemsData.name[suggestion];
+    const suggestionDiv = document.createElement("div");
+    suggestionDiv.textContent = suggestion;
+    suggestionDiv.onclick = () => {
+      document.getElementById("search-iem").value = suggestion;
+      suggestionsDiv.innerHTML = "";
+      findSimilarIEM(suggestion);
+    };
+    suggestionsDiv.appendChild(suggestionDiv);
+  });
+}
+
+function clearSearch() {
+  document.getElementById("search-iem").value = "";
+  document.getElementById("suggestions").innerHTML = "";
+}
+
+// Table functions
+let allData = [];
+const itemsPerPage = 10;
+let currentPage = 1;
+
+function renderTable(data) {
+  const tableBody = document.querySelector("#dataTable tbody");
+  tableBody.innerHTML = "";
+
+  const start = (currentPage - 1) * itemsPerPage;
+  const end = start + itemsPerPage;
+  const paginatedData = data.slice(start, end);
+
+  paginatedData.forEach((item) => {
+    const row = `<tr>
+                <td>${item.name}</td>
+                <td>${item.stdErr}</td>
+                <td>${item.meanErr}</td>
+                <td>${item.prefScore}</td>
+            </tr>`;
+    tableBody.innerHTML += row;
+  });
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const pageCount = Math.ceil(allData.length / itemsPerPage);
+  const paginationElement = document.getElementById("pagination");
+  paginationElement.innerHTML = "";
+
+  // Previous button
+  const prevButton = createButton("Previous", () => {
+    if (currentPage > 1) {
+      currentPage--;
+      renderTable(allData);
+    }
+  });
+  prevButton.disabled = currentPage === 1;
+  paginationElement.appendChild(prevButton);
+
+  // Page numbers
+  const startPage = Math.max(1, currentPage - 2);
+  const endPage = Math.min(pageCount, startPage + 4);
+
+  for (let i = startPage; i <= endPage; i++) {
+    const button = createButton(i, () => {
+      currentPage = i;
+      renderTable(allData);
     });
+    button.disabled = i === currentPage;
+    paginationElement.appendChild(button);
+  }
 
-    async function fetchSuggestions(query) {
-        // Simulated API call
-        const suggestions = await getMockSuggestions(query);
-        displaySuggestions(suggestions);
+  // Next button
+  const nextButton = createButton("Next", () => {
+    if (currentPage < pageCount) {
+      currentPage++;
+      renderTable(allData);
+    }
+  });
+  nextButton.disabled = currentPage === pageCount;
+  paginationElement.appendChild(nextButton);
+}
+
+function createButton(text, onClick) {
+  const button = document.createElement("button");
+  button.innerText = text;
+  button.classList.add("pageButton");
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+function searchTable() {
+  const searchTerm = document.getElementById("searchBox").value.toLowerCase();
+  let filteredData = allData.filter((item) =>
+    item.name.toLowerCase().includes(searchTerm)
+  );
+  currentPage = 1;
+  renderTable(filteredData);
+}
+
+function findSimilarIEM(iemName) {
+  const start = performance.now();
+  const selectedIdx = iemsData.name.indexOf(iemName);
+  const curFreq = iemsData.response[selectedIdx];
+
+  const iemsCnt = iemsData.name.length;
+  const freqDims = curFreq.length;
+
+  let sqrSum = Array(iemsCnt).fill(0);
+  let sumnoAbs = Array(iemsCnt).fill(0);
+  let sumAll = Array(iemsCnt).fill(0);
+
+  let j = -1;
+  for (let i = 0; i < iemsFR.length; i++) {
+    let spl = curFreq[i % freqDims];
+    let splError = iemsFR[i] - spl;
+
+    if (i % freqDims == 0) j++;
+    sumnoAbs[j] += splError;
+    sumAll[j] += Math.abs(splError);
+    sqrSum[j] += splError * splError;
+  }
+
+  // Find mean for std and MAE
+  let meanAll = sumAll.map((x) => x / freqDims);
+  let meannoAbs = sumnoAbs.map((x) => x / freqDims);
+  let mearnSqr = sqrSum.map((x) => x / freqDims);
+
+  // Reset allData
+  allData = [];
+  for (var i in iemsData.response) {
+    let name = iemsData.name[i];
+    let meanErr = meanAll[i];
+    if (meanErr < 0.01) {
+      continue;
     }
 
-    function displaySuggestions(suggestions) {
-        suggestionsContainer.innerHTML = '';
-        if (suggestions.length > 0) {
-            suggestions.forEach(suggestion => {
-                const suggestionItem = document.createElement('div');
-                suggestionItem.classList.add('suggestion-item');
-                suggestionItem.textContent = suggestion;
-                suggestionItem.addEventListener('click', function() {
-                    searchInput.value = suggestion;
-                    suggestionsContainer.style.display = 'none';
-                });
-                suggestionsContainer.appendChild(suggestionItem);
-            });
-            suggestionsContainer.style.display = 'block';
-        } else {
-            suggestionsContainer.style.display = 'none';
-        }
-    }
+    let meanSq = mearnSqr[i];
+    let rmse = Math.sqrt(meanSq);
+    let stdErr = Math.sqrt(sqrSum[i] / freqDims - meannoAbs[i] * meannoAbs[i]);
 
-    function getMockSuggestions(query) {
-        // Mock data
-        const mockData = [
-            'apple',
-            'banana',
-            'cherry',
-            'date',
-            'elderberry',
-            'fig',
-            'grape',
-            'honeydew'
-        ];
-        return new Promise(resolve => {
-            const filteredData = mockData.filter(item => item.toLowerCase().includes(query.toLowerCase()));
-            setTimeout(() => resolve(filteredData), 200);
-        });
+    // preference score lacks slope (for now)
+    let prefScore = 100.0795 - 8.5 * stdErr - 3.475 * meanErr;
+    if (prefScore < 0) {
+      continue;
     }
+    allData.push({
+      name: name,
+      stdErr: stdErr.toFixed(2),
+      meanErr: meanErr.toFixed(2),
+      meanSq: meanSq.toFixed(2),
+      rmse: rmse.toFixed(2),
+      prefScore: prefScore.toFixed(2),
+    });
+  }
+
+  // Sort allData based on prefScore, high to low
+  allData.sort((a, b) => b.prefScore - a.prefScore);
+
+  renderTable(allData);
+  renderPagination(allData);
+
+  sqrSum = null;
+  sumnoAbs = null;
+  sumAll = null;
+  console.log("Time taken: " + (performance.now() - start) + "ms");
+}
+
+document.addEventListener("DOMContentLoaded", async function () {
+  document.getElementById("searchBox").addEventListener("input", searchTable);
+  await changeSourceData("data/super.cbor.gz");
 });
