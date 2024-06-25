@@ -1,6 +1,7 @@
+# Ignore everything
+*
+
+# But not these files...
 !*.html
 !*.css
 !*.js
-!*.json
-!*.cbor
-!*.cbor.gz
