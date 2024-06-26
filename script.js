@@ -68,9 +68,11 @@ const itemsPerPage = 10;
 let currentPage = 1;
 
 let squigs = {
-  "data/super.cbor.gz": "https://squig.link",
-  "data/pw.cbor.gz": "https://pw.squig.link",
-  "data/precog.cbor.gz": "https://precog.squig.link",
+  "data/super.cbor.gz": "https://squig.link?x=0",
+  "data/pw.cbor.gz": "https://pw.squig.link?x=0",
+  "data/precog.cbor.gz": "https://precog.squig.link?x=0",
+  "data/crinacle_711.cbor.gz": "https://crinacle.com/graphs/iems/graphtool/?tool=711",
+  "data/crinacle_4620.cbor.gz": "https://crinacle.com/graphs/iems/graphtool/?tool=4620",
 };
 
 function renderTable(data) {
@@ -90,7 +92,7 @@ function renderTable(data) {
   let selectedIdx = iemsData.name.indexOf(selectedIEM);
   let selectedFile = iemsData.paths[selectedIdx].replaceAll(" ", "_");
   paginatedData.forEach((item) => {
-    let squigLink = `<a href="${squigUrl}?share=${selectedFile},${item.path.replaceAll(
+    let squigLink = `<a href="${squigUrl}&share=${selectedFile},${item.path.replaceAll(
       " ",
       "_"
     )}" style="text-decoration: none; color: inherit;" target="_blank">${
