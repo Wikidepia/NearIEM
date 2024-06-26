@@ -67,6 +67,12 @@ let allData = [];
 const itemsPerPage = 10;
 let currentPage = 1;
 
+let squigs = {
+  "data/super.cbor.gz": "https://squig.link",
+  "data/pw.cbor.gz": "https://pw.squig.link",
+  "data/precog.cbor.gz": "https://precog.squig.link",
+};
+
 function renderTable(data) {
   const tableBody = document.querySelector("#dataTable tbody");
   tableBody.innerHTML = "";
@@ -75,9 +81,24 @@ function renderTable(data) {
   const end = start + itemsPerPage;
   const paginatedData = data.slice(start, end);
 
+  // Create url for squig.link
+  let source = document.getElementById("data-source").value;
+  let squigUrl = squigs[source];
+
+  // Get current IEM name
+  let selectedIEM = document.getElementById("search-iem").value;
+  let selectedIdx = iemsData.name.indexOf(selectedIEM);
+  let selectedFile = iemsData.paths[selectedIdx].replaceAll(" ", "_");
   paginatedData.forEach((item) => {
+    let squigLink = `<a href="${squigUrl}?share=${selectedFile},${item.path.replaceAll(
+      " ",
+      "_"
+    )}" style="text-decoration: none; color: inherit;" target="_blank">${
+      item.name
+    }</a>`;
+
     const row = `<tr>
-                <td>${item.name}</td>
+                <td>${squigLink}</td>
                 <td>${item.stdErr}</td>
                 <td>${item.meanErr}</td>
                 <td>${item.prefScore}</td>
@@ -148,6 +169,8 @@ function findSimilarIEM(iemName) {
   const start = performance.now();
   const selectedIdx = iemsData.name.indexOf(iemName);
   const curFreq = iemsData.response[selectedIdx];
+  console.log(iemsData.paths);
+  const path = iemsData.paths[selectedIdx];
 
   const iemsCnt = iemsData.name.length;
   const freqDims = curFreq.length;
@@ -176,6 +199,7 @@ function findSimilarIEM(iemName) {
   allData = [];
   for (var i in iemsData.response) {
     let name = iemsData.name[i];
+    let path = iemsData.paths[i];
     let meanErr = meanAll[i];
     if (meanErr < 0.01) {
       continue;
@@ -192,6 +216,7 @@ function findSimilarIEM(iemName) {
     }
     allData.push({
       name: name,
+      path: path,
       stdErr: stdErr.toFixed(2),
       meanErr: meanErr.toFixed(2),
       meanSq: meanSq.toFixed(2),
