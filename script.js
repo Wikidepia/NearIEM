@@ -169,8 +169,6 @@ function findSimilarIEM(iemName) {
   const start = performance.now();
   const selectedIdx = iemsData.name.indexOf(iemName);
   const curFreq = iemsData.response[selectedIdx];
-  console.log(iemsData.paths);
-  const path = iemsData.paths[selectedIdx];
 
   const iemsCnt = iemsData.name.length;
   const freqDims = curFreq.length;
