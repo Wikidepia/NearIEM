@@ -68,6 +68,7 @@
       <!-- Select measurement sources -->
       <label for="data-source">Select measurements sources:</label>
       <select
+        class="search-input"
         id="data-source"
         style="width: 100%; padding: 10px; margin-bottom: 8px"
         onchange="changeSourceData(this.value)"
@@ -83,7 +84,7 @@
       <div class="search-container">
         <input
           type="text"
-          class="search-bar"
+          class="search-input"
           id="search-iem"
           placeholder="Search..."
           onkeyup="showSuggestions(this.value)"
