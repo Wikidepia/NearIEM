@@ -36,6 +36,7 @@ async function changeSourceData(dataPath) {
   // Clear search bar and suggestions
   document.getElementById("search-iem").value = "";
   document.getElementById("suggestions").innerHTML = "";
+  document.querySelector("#dataTable tbody").innerHTML = "";
 }
 
 function showSuggestions(value) {
