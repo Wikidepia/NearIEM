@@ -13,6 +13,8 @@ async function decompressBlob(blob) {
 }
 
 async function changeSourceData(dataPath) {
+  document.getElementById("search-iem").value = "Loading...";
+
   iemsData = await fetch(dataPath)
     .then((response) => response.blob())
     .then((blob) => decompressBlob(blob))
