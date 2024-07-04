@@ -69,6 +69,7 @@ function clearSearch() {
 let allData = [];
 const itemsPerPage = 10;
 let currentPage = 1;
+let currentSort = { column: 'prefScore', direction: 'asc' };
 
 let squigs = {
   "data/super.cbor.gz": "https://squig.link?x=0",
@@ -113,6 +114,7 @@ function renderTable(data) {
   });
 
   renderPagination();
+  updateSortIcons();
 }
 
 function renderPagination() {
@@ -232,6 +234,7 @@ function findSimilarIEM(iemName) {
   // Sort allData based on prefScore, high to low
   allData.sort((a, b) => b.prefScore - a.prefScore);
 
+  sortData();
   renderTable(allData);
   renderPagination(allData);
 
@@ -240,6 +243,43 @@ function findSimilarIEM(iemName) {
   sumAll = null;
   console.log("Time taken: " + (performance.now() - start) + "ms");
 }
+
+
+function sortData() {
+  const { column, direction } = currentSort;
+  allData.sort((a, b) => {
+      if (a[column] < b[column]) return direction === 'asc' ? -1 : 1;
+      if (a[column] > b[column]) return direction === 'asc' ? 1 : -1;
+      return 0;
+  });
+}
+
+function updateSortIcons() {
+  const headers = document.querySelectorAll('th[data-sort]');
+  headers.forEach(header => {
+      header.classList.remove('sort-icon', 'desc');
+      if (header.dataset.sort === currentSort.column) {
+          header.classList.add('sort-icon');
+          if (currentSort.direction === 'desc') {
+              header.classList.add('desc');
+          }
+      }
+  });
+}
+
+document.querySelectorAll('th[data-sort]').forEach(header => {
+  header.addEventListener('click', () => {
+      const column = header.dataset.sort;
+      if (currentSort.column === column) {
+          currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+          currentSort.column = column;
+          currentSort.direction = 'asc';
+      }
+      sortData();
+      renderTable(allData);
+  });
+});
 
 document.addEventListener("DOMContentLoaded", async function () {
   document.getElementById("searchBox").addEventListener("input", searchTable);
