@@ -69,7 +69,7 @@ function clearSearch() {
 let allData = [];
 const itemsPerPage = 10;
 let currentPage = 1;
-let currentSort = { column: 'prefScore', direction: 'asc' };
+let currentSort = { column: 'prefScore', direction: 'desc' };
 
 let squigs = {
   "data/super.cbor.gz": "https://squig.link?x=0",
