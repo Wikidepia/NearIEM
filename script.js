@@ -78,6 +78,7 @@ let squigs = {
   "data/crinacle_711.cbor.gz": "https://crinacle.com/graphs/iems/graphtool/?tool=711",
   "data/crinacle_4620.cbor.gz": "https://crinacle.com/graphs/iems/graphtool/?tool=4620",
   "data/hbb.cbor.gz": "https://hbb.squig.link?x=0",
+  "data/timmyv.cbor.gz": "https://timmyv.squig.link?x=0",
 };
 
 function renderTable(data) {
