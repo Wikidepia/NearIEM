@@ -6,6 +6,10 @@ let index = window.FlexSearch.Index({
   charset: "latin:simple",
 });
 
+function removeChildren(node) {
+  node.innerHTML = "";
+}
+
 async function decompressBlob(blob) {
   let ds = new DecompressionStream("gzip");
   let decompressedStream = blob.stream().pipeThrough(ds);
@@ -35,34 +39,41 @@ async function changeSourceData(dataPath) {
 
   // Clear search bar and suggestions
   document.getElementById("search-iem").value = "";
-  document.getElementById("suggestions").innerHTML = "";
-  document.querySelector("#dataTable tbody").innerHTML = "";
+  removeChildren(document.getElementById("suggestions"));
+  removeChildren(document.querySelector("#dataTable tbody"));
 }
 
 function showSuggestions(value) {
+  if (value.length === 0)
+    removeChildren(document.getElementById("suggestions"));
+  const start = performance.now();
   const suggestionsDiv = document.getElementById("suggestions");
-  suggestionsDiv.innerHTML = "";
   if (value.length === 0) {
     return;
   }
 
-  const suggestions = index.search(value, 50);
+  const fragment = [];
+  const suggestions = index.search(value, 20);
   suggestions.forEach((suggestion) => {
     suggestion = iemsData.name[suggestion];
     const suggestionDiv = document.createElement("div");
     suggestionDiv.textContent = suggestion;
     suggestionDiv.onclick = () => {
       document.getElementById("search-iem").value = suggestion;
-      suggestionsDiv.innerHTML = "";
+      removeChildren(suggestionsDiv);
       findSimilarIEM(suggestion);
     };
-    suggestionsDiv.appendChild(suggestionDiv);
+    fragment.push(suggestionDiv);
   });
+  suggestionsDiv.replaceChildren(...fragment);
+  console.log(
+    "showSuggestions time taken: " + (performance.now() - start) + "ms"
+  );
 }
 
 function clearSearch() {
   document.getElementById("search-iem").value = "";
-  document.getElementById("suggestions").innerHTML = "";
+  removeChildren(document.getElementById("suggestions"));
 }
 
 // Table functions
@@ -124,7 +135,7 @@ function renderTable(data) {
 function renderPagination() {
   const pageCount = Math.ceil(allData.length / itemsPerPage);
   const paginationElement = document.getElementById("pagination");
-  paginationElement.innerHTML = "";
+  removeChildren(paginationElement);
 
   // Previous button
   const prevButton = createButton("Previous", () => {
@@ -191,7 +202,8 @@ function findSimilarIEM(iemName) {
 
   let j = -1;
   const mathAbs = Math.abs;
-  for (let i = 0; i < iemsFR.length; i++) {
+  const iemsFRLen = iemsFR.length;
+  for (let i = 0; i < iemsFRLen; i++) {
     let splError = iemsFR[i] - curFreq[i & (freqDims - 1)];
 
     if ((i & 255) === 0) j++;
@@ -282,4 +294,17 @@ document.querySelectorAll("th[data-sort]").forEach((header) => {
 document.addEventListener("DOMContentLoaded", async function () {
   document.getElementById("searchBox").addEventListener("input", searchTable);
   await changeSourceData("data/super.cbor.gz");
+
+  // https://nolanlawson.com/2021/08/08/improving-responsiveness-in-text-inputs/
+  let queued = false;
+  let textarea = document.getElementById("search-iem");
+  textarea.addEventListener("input", (e) => {
+    if (!queued) {
+      queued = true;
+      requestIdleCallback(() => {
+        showSuggestions(textarea.value);
+        queued = false;
+      });
+    }
+  });
 });
