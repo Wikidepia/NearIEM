@@ -92,6 +92,7 @@ let squigs = {
     "https://crinacle.com/graphs/iems/graphtool/?tool=4620",
   "data/hbb.cbor.gz": "https://hbb.squig.link?x=0",
   "data/timmyv.cbor.gz": "https://timmyv.squig.link?x=0",
+  "data/antdroid.cbor.gz": "https://iems.audiodiscourse.com?x=0",
 };
 
 function renderTable(data) {
