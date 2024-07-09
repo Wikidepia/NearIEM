@@ -69,21 +69,22 @@ function clearSearch() {
 let allData = [];
 const itemsPerPage = 10;
 let currentPage = 1;
-let currentSort = { column: 'prefScore', direction: 'desc' };
+let currentSort = { column: "prefScore", direction: "desc" };
 
 let squigs = {
   "data/super.cbor.gz": "https://squig.link?x=0",
   "data/pw.cbor.gz": "https://pw.squig.link?x=0",
   "data/precog.cbor.gz": "https://precog.squig.link?x=0",
-  "data/crinacle_711.cbor.gz": "https://crinacle.com/graphs/iems/graphtool/?tool=711",
-  "data/crinacle_4620.cbor.gz": "https://crinacle.com/graphs/iems/graphtool/?tool=4620",
+  "data/crinacle_711.cbor.gz":
+    "https://crinacle.com/graphs/iems/graphtool/?tool=711",
+  "data/crinacle_4620.cbor.gz":
+    "https://crinacle.com/graphs/iems/graphtool/?tool=4620",
   "data/hbb.cbor.gz": "https://hbb.squig.link?x=0",
   "data/timmyv.cbor.gz": "https://timmyv.squig.link?x=0",
 };
 
 function renderTable(data) {
   const tableBody = document.querySelector("#dataTable tbody");
-  tableBody.innerHTML = "";
 
   const start = (currentPage - 1) * itemsPerPage;
   const end = start + itemsPerPage;
@@ -94,6 +95,7 @@ function renderTable(data) {
   let squigUrl = squigs[source];
 
   // Get current IEM name
+  var tableBodyInnerHTML = "";
   let selectedIEM = document.getElementById("search-iem").value;
   let selectedIdx = iemsData.name.indexOf(selectedIEM);
   let selectedFile = iemsData.paths[selectedIdx].replaceAll(" ", "_");
@@ -111,8 +113,9 @@ function renderTable(data) {
                 <td>${item.meanErr}</td>
                 <td>${item.prefScore}</td>
             </tr>`;
-    tableBody.innerHTML += row;
+    tableBodyInnerHTML += row;
   });
+  tableBody.innerHTML = tableBodyInnerHTML;
 
   renderPagination();
   updateSortIcons();
@@ -189,7 +192,7 @@ function findSimilarIEM(iemName) {
   let j = -1;
   const mathAbs = Math.abs;
   for (let i = 0; i < iemsFR.length; i++) {
-    let splError = iemsFR[i] - curFreq[i & freqDims-1];
+    let splError = iemsFR[i] - curFreq[i & (freqDims - 1)];
 
     if ((i & 255) === 0) j++;
     sumnoAbs[j] += splError;
@@ -240,40 +243,39 @@ function findSimilarIEM(iemName) {
   console.log("Time taken: " + (performance.now() - start) + "ms");
 }
 
-
 function sortData() {
   const { column, direction } = currentSort;
   allData.sort((a, b) => {
-      if (a[column] < b[column]) return direction === 'asc' ? -1 : 1;
-      if (a[column] > b[column]) return direction === 'asc' ? 1 : -1;
-      return 0;
+    if (a[column] < b[column]) return direction === "asc" ? -1 : 1;
+    if (a[column] > b[column]) return direction === "asc" ? 1 : -1;
+    return 0;
   });
 }
 
 function updateSortIcons() {
-  const headers = document.querySelectorAll('th[data-sort]');
-  headers.forEach(header => {
-      header.classList.remove('sort-icon', 'desc');
-      if (header.dataset.sort === currentSort.column) {
-          header.classList.add('sort-icon');
-          if (currentSort.direction === 'desc') {
-              header.classList.add('desc');
-          }
+  const headers = document.querySelectorAll("th[data-sort]");
+  headers.forEach((header) => {
+    header.classList.remove("sort-icon", "desc");
+    if (header.dataset.sort === currentSort.column) {
+      header.classList.add("sort-icon");
+      if (currentSort.direction === "desc") {
+        header.classList.add("desc");
       }
+    }
   });
 }
 
-document.querySelectorAll('th[data-sort]').forEach(header => {
-  header.addEventListener('click', () => {
-      const column = header.dataset.sort;
-      if (currentSort.column === column) {
-          currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-      } else {
-          currentSort.column = column;
-          currentSort.direction = 'asc';
-      }
-      sortData();
-      renderTable(allData);
+document.querySelectorAll("th[data-sort]").forEach((header) => {
+  header.addEventListener("click", () => {
+    const column = header.dataset.sort;
+    if (currentSort.column === column) {
+      currentSort.direction = currentSort.direction === "asc" ? "desc" : "asc";
+    } else {
+      currentSort.column = column;
+      currentSort.direction = "asc";
+    }
+    sortData();
+    renderTable(allData);
   });
 });
 
