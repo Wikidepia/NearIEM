@@ -182,25 +182,24 @@ function findSimilarIEM(iemName) {
   const iemsCnt = iemsData.name.length;
   const freqDims = curFreq.length;
 
-  let sqrSum = Array(iemsCnt).fill(0);
-  let sumnoAbs = Array(iemsCnt).fill(0);
-  let sumAll = Array(iemsCnt).fill(0);
+  let sqrSum = new Float32Array(iemsCnt);
+  let sumnoAbs = new Float32Array(iemsCnt);
+  let sumAll = new Float32Array(iemsCnt);
 
   let j = -1;
+  const mathAbs = Math.abs;
   for (let i = 0; i < iemsFR.length; i++) {
-    let spl = curFreq[i % freqDims];
-    let splError = iemsFR[i] - spl;
+    let splError = iemsFR[i] - curFreq[i & freqDims-1];
 
-    if (i % freqDims == 0) j++;
+    if ((i & 255) === 0) j++;
     sumnoAbs[j] += splError;
-    sumAll[j] += Math.abs(splError);
-    sqrSum[j] += splError * splError;
+    sumAll[j] += mathAbs(splError);
+    sqrSum[j] += splError ** 2;
   }
 
   // Find mean for std and MAE
   let meanAll = sumAll.map((x) => x / freqDims);
   let meannoAbs = sumnoAbs.map((x) => x / freqDims);
-  let mearnSqr = sqrSum.map((x) => x / freqDims);
 
   // Reset allData
   allData = [];
@@ -212,8 +211,6 @@ function findSimilarIEM(iemName) {
       continue;
     }
 
-    let meanSq = mearnSqr[i];
-    let rmse = Math.sqrt(meanSq);
     let stdErr = Math.sqrt(sqrSum[i] / freqDims - meannoAbs[i] * meannoAbs[i]);
 
     // preference score lacks slope (for now)
@@ -224,11 +221,9 @@ function findSimilarIEM(iemName) {
     allData.push({
       name: name,
       path: path,
-      stdErr: stdErr.toFixed(2),
-      meanErr: meanErr.toFixed(2),
-      meanSq: meanSq.toFixed(2),
-      rmse: rmse.toFixed(2),
-      prefScore: prefScore.toFixed(2),
+      stdErr: ~~(stdErr * 100) / 100,
+      meanErr: ~~(meanErr * 100) / 100,
+      prefScore: ~~(prefScore * 100) / 100,
     });
   }
 
