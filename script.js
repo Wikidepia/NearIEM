@@ -7,7 +7,9 @@ let index = window.FlexSearch.Index({
 });
 
 function removeChildren(node) {
-  node.innerHTML = "";
+  if (node.hasChildNodes()) {
+    node.innerHTML = "";
+  }
 }
 
 async function decompressBlob(blob) {
@@ -197,37 +199,42 @@ function findSimilarIEM(iemName) {
   const iemsCnt = iemsData.name.length;
   const freqDims = curFreq.length;
 
-  let sqrSum = new Float32Array(iemsCnt);
-  let sumnoAbs = new Float32Array(iemsCnt);
-  let sumAll = new Float32Array(iemsCnt);
+  const sqrSum = new Float32Array(iemsCnt);
+  const sumnoAbs = new Float32Array(iemsCnt);
+  const sumAll = new Float32Array(iemsCnt);
 
   let j = -1;
   const mathAbs = Math.abs;
   const iemsFRLen = iemsFR.length;
   for (let i = 0; i < iemsFRLen; i++) {
-    let splError = iemsFR[i] - curFreq[i & (freqDims - 1)];
+    if ((i & 255) === 0) {
+      // Find mean for std and MAE
+      sumAll[j] /= freqDims;
+      sumnoAbs[j] /= freqDims;
+      j++;
+    }
 
-    if ((i & 255) === 0) j++;
+    const splError = iemsFR[i] - curFreq[i & (freqDims - 1)];
     sumnoAbs[j] += splError;
     sumAll[j] += mathAbs(splError);
-    sqrSum[j] += splError ** 2;
+    sqrSum[j] += splError * splError;
   }
 
-  // Find mean for std and MAE
-  let meanAll = sumAll.map((x) => x / freqDims);
-  let meannoAbs = sumnoAbs.map((x) => x / freqDims);
+  // Handle the remaining elements after loop exit
+  sumAll[j] /= freqDims;
+  sumnoAbs[j] /= freqDims;
 
   // Reset allData
-  allData = [];
+  allData.length = 0;
   for (var i in iemsData.response) {
     let name = iemsData.name[i];
     let path = iemsData.paths[i];
-    let meanErr = meanAll[i];
+    let meanErr = sumAll[i];
     if (meanErr < 0.01) {
       continue;
     }
 
-    let stdErr = Math.sqrt(sqrSum[i] / freqDims - meannoAbs[i] * meannoAbs[i]);
+    let stdErr = Math.sqrt(sqrSum[i] / freqDims - sumnoAbs[i] * sumnoAbs[i]);
 
     // preference score lacks slope (for now)
     let prefScore = 100.0795 - 8.5 * stdErr - 3.475 * meanErr;
@@ -242,6 +249,7 @@ function findSimilarIEM(iemName) {
       prefScore: ~~(prefScore * 100) / 100,
     });
   }
+  console.log("Time taken: " + (performance.now() - start) + "ms");
 
   // Sort allData based on prefScore, high to low
   allData.sort((a, b) => b.prefScore - a.prefScore);
@@ -249,11 +257,6 @@ function findSimilarIEM(iemName) {
   sortData();
   renderTable(allData);
   renderPagination(allData);
-
-  sqrSum = null;
-  sumnoAbs = null;
-  sumAll = null;
-  console.log("Time taken: " + (performance.now() - start) + "ms");
 }
 
 function sortData() {
