@@ -191,6 +191,11 @@ function searchTable() {
   renderTable(filteredData);
 }
 
+function bitAbs(x) {
+  const mask = x >> 31;
+  return (x ^ mask) - mask;
+}
+
 function findSimilarIEM(iemName) {
   const start = performance.now();
   const selectedIdx = iemsData.name.indexOf(iemName);
@@ -203,21 +208,35 @@ function findSimilarIEM(iemName) {
   const sumnoAbs = new Float32Array(iemsCnt);
   const sumAll = new Float32Array(iemsCnt);
 
-  let j = -1;
+  let j = 0;
   const mathAbs = Math.abs;
   const iemsFRLen = iemsFR.length;
-  for (let i = 0; i < iemsFRLen; i++) {
-    if ((i & 255) === 0) {
-      // Find mean for std and MAE
+
+  // There might be a one off error here somewhere ...
+  for (let i = 0; i < iemsFRLen + 4; i += 4) {
+    const splError1 = iemsFR[i] - curFreq[i & (freqDims - 1)];
+    const splError2 = iemsFR[i + 1] - curFreq[(i + 1) & (freqDims - 1)];
+    const splError3 = iemsFR[i + 2] - curFreq[(i + 2) & (freqDims - 1)];
+    const splError4 = iemsFR[i + 3] - curFreq[(i + 3) & (freqDims - 1)];
+
+    sumnoAbs[j] += splError1 + splError2 + splError3 + splError4;
+    sumAll[j] +=
+    bitAbs(splError1) +
+    bitAbs(splError2) +
+    bitAbs(splError3) +
+    bitAbs(splError4);
+    sqrSum[j] +=
+      splError1 * splError1 +
+      splError2 * splError2 +
+      splError3 * splError3 +
+      splError4 * splError4;
+
+    // If multiple of 256, compute means
+    if ((i & 255) === 252) {
       sumAll[j] /= freqDims;
       sumnoAbs[j] /= freqDims;
       j++;
     }
-
-    const splError = iemsFR[i] - curFreq[i & (freqDims - 1)];
-    sumnoAbs[j] += splError;
-    sumAll[j] += mathAbs(splError);
-    sqrSum[j] += splError * splError;
   }
 
   // Handle the remaining elements after loop exit
